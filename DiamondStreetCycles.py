@@ -8,7 +8,14 @@ import pandas as pd
 import math
 
 
-## Helper Classes
+#### Helper Classes ####
+
+
+## Product - {Name, Verkaufspreis, Maschinenkosten, 
+#   Maximalprognose, Mindestproduktionsmenge, Materialien}
+
+# Maximalprognose und Mindestproduktionsmenge können undefiniert sein
+# Materialien - {name : m/Stück}
 
 class Product:
     
@@ -20,7 +27,7 @@ class Product:
         self.maxp = maxp
         self.minp = minp
         
-     
+## Material - {Name, Kosten / m, Limit}   
 class Material:
     
     def __init__(self, name, costs, limit):
@@ -28,32 +35,40 @@ class Material:
         self.costs = costs
         self.limit = limit
 
+#### End Helper Classes ####
+
+
+#### Read Excel #### 
 
 ## load Excel
-
 DSS = xp.problem("Deinemutter")
 
-# Load the Excel file and read data from the sheets "Material" and "Produkt"
+# Laden der Excel File und auslesen von Material, Produkt und Fixkosten
 file_path = 'Produktionsplanung.xlsx'  # Replace with your file path
 material_df = pd.read_excel(file_path, sheet_name='Material')
 produkt_df = pd.read_excel(file_path, sheet_name='Produkt')
 fixed_costs_df = pd.read_excel(file_path, sheet_name='Fixkosten')
-
+variables_df = pd.read_excel(file_path, sheet_name='Variablen')
 
 
 ## Create a list with all products
 
 productList = []
 
+## for each product in Produkt Column
 for idx in range(len(produkt_df['Produkt'])):
         
+        ## read Row with the index of the Product
         productData = produkt_df.iloc[idx]
+        
+        ## number of materials is dynamic
+        # first material name is always in column 5, 
+        # materials required is always the next column
         materials = {}
-        
-        
         for matIdx in range(5, len(productData),2):
             materials[productData[matIdx]] = productData[matIdx + 1]
-            
+        
+        # add Product to product list
         productList.append(Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials))
     
         
@@ -115,23 +130,44 @@ for product in productList:
     if product.minp > 0:
         DSS.addConstraint(variableMap[product.name] >= product.minp)
     
+## Verschnittmengen
 
-### Kosten 
+blendingQuantity = {}
+
+for matName in materialMap:   
+    tempList = []
+    
+    for prod in productList:
+        if matName in prod.materials:
+            tempList.append(prod)
+    
+    blendingQuantity[matName] = materialMap[matName].limit - sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList)))
+
+
+#### Kosten #### 
 
 ## Fixed Costs
 
 totalFixedCosts = sum(fixed_costs_df['Betrag'])
 
-print(totalFixedCosts)
 
 ## Material Kosten
 
 totalMaterialCosts = sum(material.limit * material.costs for material in materialMap.values())
 
 
-##### Total Costs
+## Rücksendekosten ##
 
-totalCosts = totalFixedCosts + totalMaterialCosts
+returnCosts = sum(blendingQuantity.values()) * variables_df.loc[0, 'Rücksendekosten']
+
+## Rückerstattungspreis
+
+returnMoney = sum(quantity * materialMap[matName].costs for matName, quantity in blendingQuantity.items())
+
+
+### Total Costs ###
+
+totalCosts = totalFixedCosts + totalMaterialCosts + returnCosts - returnMoney
 
 
 ######## Zielfunktion
@@ -148,4 +184,7 @@ print("ZFW:", DSS.getObjVal())
 print("Schattenpreise:", DSS.getDual())
 print("Schlupf:", DSS.getSlack())
 print("RCost:", DSS.getRCost())
+
+
+
     
