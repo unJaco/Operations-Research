@@ -70,19 +70,8 @@ for idx in range(len(produkt_df['Produkt'])):
         
         # add Product to product list
         productList.append(Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials))
+
     
-        
-
-
-## create a Map / Dict with all Variables
-## each variable has the name of the corresponding product
-variableMap = {}
-
-for prod in productList:
-    variableMap[prod.name] = xp.var(name=prod.name)
-    DSS.addVariable(variableMap[prod.name])
-
-
 ## create a map / dict with all materials
 
 materialMap = {}
@@ -94,7 +83,31 @@ materialLimits = material_df['Materialbeschränkungen']
 for idx in range(len(materialNames)):
     mat = Material(materialNames[idx], materialCosts[idx], materialLimits[idx])
     materialMap[materialNames[idx]] = mat
+            
+
+## create a Map / Dict with all Variables
+## each variable has the name of the corresponding product
+variableMap = {}
+
+for prod in productList:
     
+    minp, maxp = 0,0
+    
+    if math.isnan(prod.minp):
+      minp = 0
+    
+    else:
+        minp = prod.minp
+    
+    if math.isnan(prod.maxp):
+        maxp = 30000
+    else:
+        maxp = prod.maxp
+        
+    variableMap[prod.name] = xp.var(name=prod.name, vartype=xp.integer, lb=minp, ub=maxp)
+    DSS.addVariable(variableMap[prod.name])
+
+
     
 ### Constraints
 
@@ -118,19 +131,21 @@ DSS.addConstraint(variableMap['Sweatshorts'] >= variableMap['Sweatshirt'])
 
 ## Maximalprognose
 
+"""
 for product in productList:
     if product.maxp > 0:
         DSS.addConstraint(variableMap[product.name] <= product.maxp)
     
-    
+ """   
 
 ## Mindestproduktionsmenge
-
+"""
 for product in productList:
     if product.minp > 0:
         DSS.addConstraint(variableMap[product.name] >= product.minp)
     
-## Verschnittmengen
+    """
+## Übriges Material
 
 blendingQuantity = {}
 
@@ -160,14 +175,15 @@ totalMaterialCosts = sum(material.limit * material.costs for material in materia
 
 returnCosts = sum(blendingQuantity.values()) * variables_df.loc[0, 'Rücksendekosten']
 
+
 ## Rückerstattungspreis
 
 returnMoney = sum(quantity * materialMap[matName].costs for matName, quantity in blendingQuantity.items())
 
-
 ### Total Costs ###
 
 totalCosts = totalFixedCosts + totalMaterialCosts + returnCosts - returnMoney
+
 
 
 ######## Zielfunktion
@@ -177,13 +193,16 @@ objective = sum((product.vk - product.mk) * variableMap[product.name] for produc
 
 DSS.setObjective(objective, sense=xp.maximize)
 
-DSS.lpoptimize()
+DSS.mipoptimize()
 
-print("Lösung:", DSS.getSolution())
-print("ZFW:", DSS.getObjVal())
-print("Schattenpreise:", DSS.getDual())
-print("Schlupf:", DSS.getSlack())
-print("RCost:", DSS.getRCost())
+solution = DSS.getSolution()
+
+print("Lösung:", solution)
+
+for name, var in variableMap.items():
+    print(name + ": " + str(DSS.getSolution(name)))
+    
+
 
 
 
