@@ -187,7 +187,6 @@ totalCosts = totalFixedCosts + totalMaterialCosts + returnCosts - returnMoney
 
 ######## Zielfunktion
 
-
 objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts
 
 DSS.setObjective(objective, sense=xp.maximize)
@@ -196,13 +195,39 @@ DSS.mipoptimize()
 
 solution = DSS.getSolution()
 
+optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
+
+
 print("Lösung:", solution)
+print()
+
+## Produktion pro Variable
+
+print('Produktion pro Variable')
+print()
 
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
     
+    
+## Zurücksendungen
+print()
+print('Zurücksendungen')
+print()
 
+for matName in materialMap:   
+    tempList = []
+    
+    for prod in productList:
+        if matName in prod.materials:
+            tempList.append(prod)
+    
+    print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
 
+    
+## Deckungsbeitrag
 
-
+dbgesamt = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
+print()
+print('DB gesamt: ' + str(dbgesamt))
     
