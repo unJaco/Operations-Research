@@ -185,7 +185,6 @@ returnMoney = sum(quantity * materialMap[matName].costs for matName, quantity in
 totalCosts = totalFixedCosts + totalMaterialCosts + returnCosts - returnMoney
 
 
-
 ######## Zielfunktion
 
 
