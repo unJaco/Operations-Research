@@ -147,7 +147,7 @@ for product in productList:
     """
 ## Übriges Material
 
-blendingQuantity = {}
+remainingMaterial = {}
 
 for matName in materialMap:   
     tempList = []
@@ -156,7 +156,7 @@ for matName in materialMap:
         if matName in prod.materials:
             tempList.append(prod)
     
-    blendingQuantity[matName] = materialMap[matName].limit - sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList)))
+    remainingMaterial[matName] = materialMap[matName].limit - sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList)))
 
 
 #### Kosten #### 
@@ -173,12 +173,12 @@ totalMaterialCosts = sum(material.limit * material.costs for material in materia
 
 ## Rücksendekosten ##
 
-returnCosts = sum(blendingQuantity.values()) * variables_df.loc[0, 'Rücksendekosten']
+returnCosts = sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']
 
 
 ## Rückerstattungspreis
 
-returnMoney = sum(quantity * materialMap[matName].costs for matName, quantity in blendingQuantity.items())
+returnMoney = sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())
 
 ### Total Costs ###
 
