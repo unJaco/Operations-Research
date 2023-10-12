@@ -121,13 +121,14 @@ for matName in materialMap:
             tempList.append(prod)
          
     DSS.addConstraint(xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit)
-
+    
  
 ## Verschnittregelung
 # TO-DO condition in excel
 
 DSS.addConstraint(variableMap['Fleece-Top'] >= variableMap['Fleece-Shirt'])
 DSS.addConstraint(variableMap['Sweatshorts'] >= variableMap['Sweatshirt'])
+
 
 ## Maximalprognose
 
@@ -230,4 +231,24 @@ for matName in materialMap:
 dbgesamt = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
 print()
 print('DB gesamt: ' + str(dbgesamt))
+
+for matName in materialMap:   
+    tempList = []
     
+    for prod in productList:
+        if matName in prod.materials:
+            tempList.append(prod)
+    
+    remainingMaterial[matName] = materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))
+
+
+print(remainingMaterial.values())
+
+print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']))
+print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
+ 
+   
+print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten'] - remainingMaterial['recyceltes Polyester'] * variables_df.loc[0, 'Rücksendekosten']))
+print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items()) - remainingMaterial['recyceltes Polyester'] * materialMap['recyceltes Polyester'].costs))
+
+
