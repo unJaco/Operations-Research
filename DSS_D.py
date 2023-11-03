@@ -265,7 +265,7 @@ print(remainingMaterial.values())
 print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']))
 print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
 print()
- 
+
 
 DSS.lpoptimize()
 
@@ -288,6 +288,8 @@ print("\nSensitivity for Objective Function Coefficients:")#
 print()
 for var, lo, up in zip(all_variables, lower_obj, upper_obj):
     print(f"{var.name}: Lower = {lo}, Upper = {up}")
+
+
 
 # Sensitivitätsanalyse für Rechte Seiten (b-Vektor)
 lower_rhs, upper_rhs = [], []
