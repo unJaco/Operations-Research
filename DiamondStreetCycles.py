@@ -107,7 +107,7 @@ for prod in productList:
     variableMap[prod.name] = xp.var(name=prod.name, vartype=xp.integer, lb=minp, ub=maxp)
     DSS.addVariable(variableMap[prod.name])
 
-
+constraintList = []
     
 ### Constraints
 
@@ -119,15 +119,25 @@ for matName in materialMap:
     for prod in productList:
         if matName in prod.materials:
             tempList.append(prod)
-         
-    DSS.addConstraint(xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit)
+    c_mat = xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit
+        
+    DSS.addConstraint(c_mat)
+    
+    constraintList.append(c_mat)
     
  
 ## Verschnittregelung
 # TO-DO condition in excel
 
-DSS.addConstraint(variableMap['Fleece-Top'] >= variableMap['Fleece-Shirt'])
-DSS.addConstraint(variableMap['Sweatshorts'] >= variableMap['Sweatshirt'])
+c_ver1 = variableMap['Fleece-Top'] >= variableMap['Fleece-Shirt']
+c_ver2 = variableMap['Sweatshorts'] >= variableMap['Sweatshirt']
+DSS.addConstraint(c_ver1)
+DSS.addConstraint(c_ver2)
+constraintList.append(c_ver1)
+constraintList.append(c_ver2)
+
+
+
 
 
 ## Maximalprognose
@@ -202,7 +212,6 @@ redkosten = DSS.getRCost()
 ZFWert = DSS.getObjVal()
 
 optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
-
 
 print("Lösung:", solution)
 print("ZFW:", ZFWert)
