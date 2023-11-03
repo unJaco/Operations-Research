@@ -207,12 +207,12 @@ objective = sum((product.vk - product.mk) * variableMap[product.name] for produc
 DSS.setObjective(objective, sense=xp.maximize)
 
 # ************************************
-# MIP-OPTIMIERUNG
+# LP-OPTIMIERUNG
 # ************************************
 
-DSS.mipoptimize()
+DSS.lpoptimize()
 print("------------------")
-print("MIP-OPTIMIERUNG")
+print("LP-OPTIMIERUNG")
 print("------------------")
 
 
@@ -289,34 +289,12 @@ print()
 
 
 # ************************************
-# LP-OPTIMIERUNG
-# ************************************
-
-DSS.lpoptimize()
-
-print("------------------")
-print("LP-OPTIMIERUNG")
-print("------------------")
-
-solution = DSS.getSolution()
-schlupf = DSS.getSlack()
-dualwerte = DSS.getDual()
-redkosten = DSS.getRCost()
-ZFWert = DSS.getObjVal()
-
-optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
-
-print("Lösung:", solution)
-print("ZFW:", ZFWert)
-print("Schlupf:", schlupf)
-print("Dualwerte:", dualwerte)
-print("Reduzierte Kosten:", redkosten)
-print()
-
-
-# ************************************
 # Sensitivitaetsanalyse
 # ************************************
+
+print("------------------")
+print("SENSITIVITÄTSANALYSE")
+print("------------------")
 
 # Sensitivitätsanalyse für Zielfunktionskoeffizienten
 all_variables = list(variableMap.values())
