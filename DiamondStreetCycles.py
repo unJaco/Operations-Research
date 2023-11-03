@@ -37,11 +37,13 @@ class Material:
 
 #### End Helper Classes ####
 
-
 #### Read Excel #### 
 
 ## load Excel
 DSS = xp.problem("DiamondStreetStyles")
+
+## XPRESS Settings
+DSS.setControl('outputlog', 0)
 
 # Laden der Excel File und auslesen von Material, Produkt und Fixkosten
 file_path = 'Produktionsplanung.xlsx'  # Replace with your file path
@@ -204,7 +206,14 @@ objective = sum((product.vk - product.mk) * variableMap[product.name] for produc
 
 DSS.setObjective(objective, sense=xp.maximize)
 
+# ************************************
+# MIP-OPTIMIERUNG
+# ************************************
+
 DSS.mipoptimize()
+print("------------------")
+print("MIP-OPTIMIERUNG")
+print("------------------")
 
 
 solution = DSS.getSolution()
@@ -278,7 +287,32 @@ print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matNa
 print()
 
 
+
+# ************************************
+# LP-OPTIMIERUNG
+# ************************************
+
 DSS.lpoptimize()
+
+print("------------------")
+print("LP-OPTIMIERUNG")
+print("------------------")
+
+solution = DSS.getSolution()
+schlupf = DSS.getSlack()
+dualwerte = DSS.getDual()
+redkosten = DSS.getRCost()
+ZFWert = DSS.getObjVal()
+
+optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
+
+print("Lösung:", solution)
+print("ZFW:", ZFWert)
+print("Schlupf:", schlupf)
+print("Dualwerte:", dualwerte)
+print("Reduzierte Kosten:", redkosten)
+print()
+
 
 # ************************************
 # Sensitivitaetsanalyse
