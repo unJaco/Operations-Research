@@ -107,9 +107,11 @@ for prod in productList:
     variableMap[prod.name] = xp.var(name=prod.name, vartype=xp.integer, lb=minp, ub=maxp)
     DSS.addVariable(variableMap[prod.name])
 
-constraintList = []
+
     
 ### Constraints
+
+constraintList = []
 
 ## Materialbeschränkungen
 
@@ -302,34 +304,29 @@ for var, lo, up in zip(all_variables, lower_obj, upper_obj):
 
 # Sensitivitätsanalyse für Rechte Seiten (b-Vektor)
 lower_rhs, upper_rhs = [], []
-DSS.rhssa([neb1, neb2, neb3], lower_rhs, upper_rhs)
+DSS.rhssa(constraintList, lower_rhs, upper_rhs)
 print("\nSensitivität für Rechte Seiten:")
 print("Untere Grenzen:", lower_rhs)
 print("Obere Grenzen:", upper_rhs)
 
 # Schlupfvariablen für jede Nebenbedingung
 
-# Überprüfen, welche Nebenbedingungen aktiv sind
+# Liste der aktiven und inaktiven Nebenbedingungen erstellen
 active_constraints = []
 inactive_constraints = []
 
-if schlupf[0] == 0:
-    active_constraints.append('neb1')
-else:
-    inactive_constraints.append('neb1')
+# Schlupf für jede Nebenbedingung überprüfen
+for idx, constr in enumerate(constraintList):
+    slack_value = DSS.getSlack(constr)
+    if slack_value == 0:
+        active_constraints.append(f'NB{idx+1}')  # +1, weil die Zählung der Constraints bei 1 beginnt
+    else:
+        inactive_constraints.append(f'NB{idx+1}')
 
-if schlupf[1] == 0:
-    active_constraints.append('neb2')
-else:
-    inactive_constraints.append('neb2')
-
-if schlupf[2] == 0:
-    active_constraints.append('neb3')
-else:
-    inactive_constraints.append('neb3')
-
+# Ausgabe der aktiven und inaktiven Nebenbedingungen
 print("Aktive Nebenbedingungen:", active_constraints)
 print("Inaktive Nebenbedingungen:", inactive_constraints)
+
 
 
 # Erstellen Sie zwei leere Listen für rowstat und colstat
