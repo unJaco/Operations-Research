@@ -5,7 +5,6 @@ DiamondStreetStyles - main.py
 
 import xpress as xp
 import pandas as pd
-import math
 
 
 #### Helper Classes ####
@@ -125,10 +124,6 @@ DSS.addConstraint(c_ver1)
 DSS.addConstraint(c_ver2)
 constraintList.append(c_ver1)
 constraintList.append(c_ver2)
-
-
-
-
 
 ## Maximalprognose
 for product in productList:
@@ -328,8 +323,6 @@ for idx, constr in enumerate(constraintList):
 # Ausgabe der aktiven und inaktiven Nebenbedingungen
 print("Aktive Nebenbedingungen:", active_constraints)
 print("Inaktive Nebenbedingungen:", inactive_constraints)
-
-
 
 # Erstellen Sie zwei leere Listen für rowstat und colstat
 rowstat = [0] * DSS.attributes.rows
