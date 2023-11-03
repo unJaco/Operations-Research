@@ -228,6 +228,15 @@ for matName in materialMap:
     
 ## Deckungsbeitrag
 
+## Deckungsbeitrag pro Produkt
+print()
+print("Deckungsbeitrag pro Produkt")
+print()
+for product in productList:
+    db_product = (product.vk - product.mk) * optimal_values[variableMap[product.name]]
+    print(f"DB - {product.name}: {db_product}")
+
+## Deckungsbeitrag gesamt
 dbgesamt = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
 print()
 print('DB gesamt: ' + str(dbgesamt))
