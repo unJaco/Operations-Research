@@ -92,21 +92,7 @@ for idx in range(len(materialNames)):
 variableMap = {}
 
 for prod in productList:
-    
-    minp, maxp = 0,0
-    
-    if math.isnan(prod.minp):
-      minp = 0
-    
-    else:
-        minp = prod.minp
-    
-    if math.isnan(prod.maxp):
-        maxp = 30000
-    else:
-        maxp = prod.maxp
-        
-    variableMap[prod.name] = xp.var(name=prod.name, vartype=xp.integer, lb=minp, ub=maxp)
+    variableMap[prod.name] = xp.var(name=prod.name)
     DSS.addVariable(variableMap[prod.name])
 
 
@@ -145,21 +131,25 @@ constraintList.append(c_ver2)
 
 
 ## Maximalprognose
-
-"""
 for product in productList:
     if product.maxp > 0:
-        DSS.addConstraint(variableMap[product.name] <= product.maxp)
-    
- """   
+        # Erstelle eine Constraint
+        constraint = variableMap[product.name] <= product.maxp
+        # Füge die Constraint zum Optimierer hinzu
+        DSS.addConstraint(constraint)
+        # Füge die Constraint zur Liste hinzu
+        constraintList.append(constraint)
 
-## Mindestproduktionsmenge
-"""
+# Mindestproduktionsmenge
 for product in productList:
     if product.minp > 0:
-        DSS.addConstraint(variableMap[product.name] >= product.minp)
+        # Erstelle eine Constraint
+        constraint = variableMap[product.name] >= product.minp
+        # Füge die Constraint zum Optimierer hinzu
+        DSS.addConstraint(constraint)
+        # Füge die Constraint zur Liste hinzu
+        constraintList.append(constraint)
     
-    """
 ## Übriges Material
 
 remainingMaterial = {}
