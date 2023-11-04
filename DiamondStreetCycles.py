@@ -74,80 +74,109 @@ for idx in range(len(produkt_df['Produkt'])):
         productList.append(Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials) )
 
     
-## create a map / dict with all materials
-
+# Create an empty dictionary to store Material objects, with the material name as the key.
 materialMap = {}
 
+# Extract lists of material names, costs per meter, and material constraints from a DataFrame.
 materialNames = material_df['Material']
 materialCosts = material_df['Kosten / m']
 materialLimits = material_df['Materialbeschränkungen']
 
+# Iterate through each row of the extracted material data.
 for idx in range(len(materialNames)):
+    # Create a Material object with the name, cost, and constraints of the material.
     mat = Material(materialNames[idx], materialCosts[idx], materialLimits[idx])
+    # Add the Material object to the dictionary, using the material name as the key to the object.
     materialMap[materialNames[idx]] = mat
-            
 
-## create a Map / Dict with all Variables
-## each variable has the name of the corresponding product
+# Create an empty dictionary to store optimization variables, using product names as keys.
 variableMap = {}
 
+# Iterate through a list of product objects.
 for prod in productList:
+    # Create an optimization variable for each product using the product's name.
     variableMap[prod.name] = xp.var(name=prod.name)
+    # Add the created variable to a collection of variables, presumably for an optimization model.
     DSS.addVariable(variableMap[prod.name])
+
 
 
     
 ### Constraints
 
+# Initialize an empty list to hold all constraints
 constraintList = []
 
-## Materialbeschränkungen
+## Material Constraints
 
+# Loop over each material name in the materialMap dictionary
 for matName in materialMap:   
+    # Initialize a temporary list to hold products that use the current material
     tempList = []
     
+    # Loop over each product in the productList
     for prod in productList:
+        # If the current material is used in the product
         if matName in prod.materials:
+            # Add the product to the temporary list
             tempList.append(prod)
-    c_mat = xp.constraint(xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit, name=matName)
-        
+    
+    # Create a constraint ensuring the sum of the materials used by the products
+    # does not exceed the material limit. This is done by summing the product
+    # of the material quantity used in each product and the corresponding variable
+    # from the variableMap, for all products that use the material.
+    c_mat = xp.constraint(
+        xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit,
+        name=matName
+    )
+    
+    # Add the constraint to the Decision Support System (DSS)
     DSS.addConstraint(c_mat)
     
+    # Add the created constraint to the constraint list
     constraintList.append(c_mat)
+
     
  
-## Verschnittregelung
+## Offcut Control
 # TO-DO condition in excel
 
+# Create constraints based on the condition that the quantity of 'Fleece-Top' should be greater than or equal to 'Fleece-Shirt'
 c_ver1 = variableMap['Fleece-Top'] >= variableMap['Fleece-Shirt']
+# Create constraints based on the condition that the quantity of 'Sweatshorts' should be greater than or equal to 'Sweatshirt'
 c_ver2 = variableMap['Sweatshorts'] >= variableMap['Sweatshirt']
+# Add the constraints to the Decision Support System (DSS)
 DSS.addConstraint(c_ver1)
 DSS.addConstraint(c_ver2)
+# Append the constraints to the constraint list for later reference
 constraintList.append(c_ver1)
 constraintList.append(c_ver2)
 
-maxConstraintList = [] # wichtig, nicht löschen !!!
+# Initialize a list for maximum constraints - important, do not delete!!!
+maxConstraintList = []
 
-## Maximalprognose
+## Maximum Forecast
 for product in productList:
     if product.maxp > 0:
-        # Erstelle eine Constraint
+        # Create a constraint for maximum production limit
         constraint = variableMap[product.name] <= product.maxp
-        # Füge die Constraint zum Optimierer hinzu
+        # Add the constraint to the optimizer
         DSS.addConstraint(constraint)
-        # Füge die Constraint zur Liste hinzu
+        # Add the constraint to the list for tracking
         constraintList.append(constraint)
-        maxConstraintList.append(constraint) # nicht löschen !!!
+        # Add the constraint to the maximum constraint list - do not delete!!!
+        maxConstraintList.append(constraint)
 
-# Mindestproduktionsmenge
+# Minimum Production Quantity
 for product in productList:
     if product.minp > 0:
-        # Erstelle eine Constraint
+        # Create a constraint for minimum production quantity
         constraint = variableMap[product.name] >= product.minp
-        # Füge die Constraint zum Optimierer hinzu
+        # Add the constraint to the optimizer
         DSS.addConstraint(constraint)
-        # Füge die Constraint zur Liste hinzu
+        # Add the constraint to the constraint list for tracking
         constraintList.append(constraint)
+
     
 ## Übriges Material
 
@@ -201,90 +230,110 @@ DSS.setObjective(objective, sense=xp.maximize)
 # LP-OPTIMIERUNG
 # ************************************
 
+# Optimize the linear programming model
 DSS.lpoptimize()
 print("------------------")
-print("LP-OPTIMIERUNG")
+print("LP OPTIMIZATION")
 print("------------------")
 
-
+# Retrieve the solution, slack, dual values, and reduced costs from the optimization
 solution = DSS.getSolution()
-schlupf = DSS.getSlack()
-dualwerte = DSS.getDual()
-redkosten = DSS.getRCost()
-ZFWert = DSS.getObjVal()
+slack = DSS.getSlack()
+dual_values = DSS.getDual()
+reduced_costs = DSS.getRCost()
+objective_value = DSS.getObjVal()
 
+# Generate a dictionary of optimal values for each variable
 optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
 
-print("Lösung:", solution)
+print("Solution:", solution)
 
-print("ZFW:", ZFWert)
+# Print the objective function value (OFV)
+print("OFV:", objective_value)
 
-
-print("Schlupf:", schlupf)
-print("Dualwerte:", dualwerte)
-print("Reduzierte Kosten:", redkosten)
+# Print slack values
+print("Slack:", slack)
+# Print dual values
+print("Dual values:", dual_values)
+# Print reduced costs
+print("Reduced Costs:", reduced_costs)
 print()
 
-## Produktion pro Variable
+## Production per Variable
 
-print('Produktion pro Variable')
+# Print production per variable
+print('Production per Variable')
 print()
 
-gesamtProd = 0
+# Initialize total production sum
+total_production = 0
 
+# Calculate production for each variable and aggregate the total production
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
-    gesamtProd += DSS.getSolution(name)
-    
-print()
-print("Gesamt Herstellungsmenge: " + str(gesamtProd))
-    
+    total_production += DSS.getSolution(name)
 
-## Zurücksendungen
+# Print total production amount
 print()
-print('Zurücksendungen')
+print("Total Production Amount: " + str(total_production))
+
+## Returns
+# Print the section for returns
+print()
+print('Returns')
 print()
 
+# Calculate and print the returns for each material
 for matName in materialMap:   
     tempList = []
     
+    # Create a list of products containing the material
     for prod in productList:
         if matName in prod.materials:
             tempList.append(prod)
     
-    print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
+    # Calculate and print the material return amount
+    print(matName + ': ' + str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
 
     
-## Deckungsbeitrag
+## Contribution Margin
 
-## Deckungsbeitrag pro Produkt
+# Print the section for contribution margin per product
 print()
-print("Deckungsbeitrag pro Produkt")
+print("Contribution Margin per Product")
 print()
+
+# Calculate and print the contribution margin for each product
 for product in productList:
     db_product = (product.vk - product.mk) * optimal_values[variableMap[product.name]]
-    print(f"DB - {product.name}: {db_product}")
+    print(f"CM - {product.name}: {db_product}")
 
-## Deckungsbeitrag gesamt
-dbgesamt = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
+# Calculate and print the total contribution margin
+total_contribution_margin = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
 print()
-print('DB gesamt: ' + str(dbgesamt))
+print('Total CM: ' + str(total_contribution_margin))
 
+# Calculate remaining material after returns
 for matName in materialMap:   
     tempList = []
     
+    # Create a list of products containing the material
     for prod in productList:
         if matName in prod.materials:
             tempList.append(prod)
     
+    # Calculate remaining material for each type
     remainingMaterial[matName] = materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))
 
-
+# Print the remaining material values
 print(remainingMaterial.values())
 
-print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']))
-print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
+# Calculate and print return costs
+print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Return Costs']))
+# Calculate and print return revenue
+print('Return Revenue: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
 print()
+
 
 
 
@@ -471,4 +520,4 @@ for matName in materialMap:
             tempList.append(prod)
     
     print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
-    
+
