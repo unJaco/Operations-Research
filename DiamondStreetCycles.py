@@ -5,6 +5,7 @@ DiamondStreetStyles - main.py
 
 import xpress as xp
 import pandas as pd
+import math
 
 
 #### Helper Classes ####
@@ -70,7 +71,9 @@ for idx in range(len(produkt_df['Produkt'])):
             materials[productData[matIdx]] = productData[matIdx + 1]
         
         # add Product to product list
-        productList.append(Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials))
+        p = Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials)
+        print(p.maxp)         
+        productList.append(p)
 
     
 ## create a map / dict with all materials
@@ -108,7 +111,7 @@ for matName in materialMap:
     for prod in productList:
         if matName in prod.materials:
             tempList.append(prod)
-    c_mat = xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit
+    c_mat = xp.constraint(xp.Sum(tempList[i].materials[matName] * variableMap[tempList[i].name] for i in range(len(tempList))) <= materialMap[matName].limit, name=matName)
         
     DSS.addConstraint(c_mat)
     
@@ -125,6 +128,8 @@ DSS.addConstraint(c_ver2)
 constraintList.append(c_ver1)
 constraintList.append(c_ver2)
 
+maxConstraintList = [] # wichtig, nicht löschen !!!
+
 ## Maximalprognose
 for product in productList:
     if product.maxp > 0:
@@ -134,6 +139,7 @@ for product in productList:
         DSS.addConstraint(constraint)
         # Füge die Constraint zur Liste hinzu
         constraintList.append(constraint)
+        maxConstraintList.append(constraint) # nicht löschen !!!
 
 # Mindestproduktionsmenge
 for product in productList:
@@ -165,7 +171,6 @@ for matName in materialMap:
 
 totalFixedCosts = sum(fixed_costs_df['Betrag'])
 
-
 ## Material Kosten
 
 totalMaterialCosts = sum(material.limit * material.costs for material in materialMap.values())
@@ -173,8 +178,9 @@ totalMaterialCosts = sum(material.limit * material.costs for material in materia
 
 ## Rücksendekosten ##
 
-returnCosts = sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']
 
+
+returnCosts = sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']
 
 ## Rückerstattungspreis
 
@@ -190,6 +196,8 @@ totalCosts = totalFixedCosts + totalMaterialCosts + returnCosts - returnMoney
 objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts
 
 DSS.setObjective(objective, sense=xp.maximize)
+
+
 
 # ************************************
 # LP-OPTIMIERUNG
@@ -210,7 +218,10 @@ ZFWert = DSS.getObjVal()
 optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
 
 print("Lösung:", solution)
+
 print("ZFW:", ZFWert)
+
+
 print("Schlupf:", schlupf)
 print("Dualwerte:", dualwerte)
 print("Reduzierte Kosten:", redkosten)
@@ -224,7 +235,7 @@ print()
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
     
-    
+
 ## Zurücksendungen
 print()
 print('Zurücksendungen')
@@ -294,17 +305,42 @@ DSS.objsa(all_variables, lower_obj, upper_obj)
 # Now lower_obj and upper_obj lists will be populated with the sensitivity ranges for the objective coefficients.
 print("\nSensitivity for Objective Function Coefficients:")#
 print()
-for var, lo, up in zip(all_variables, lower_obj, upper_obj):
-    print(f"{var.name}: Lower = {lo}, Upper = {up}")
 
 
+zfkList = []
+for prod in productList:
+    zfk = 0
+    for mat in materialNames:
+        if mat in prod.materials:
+            x = prod.materials[mat] * 0.1
+            zfk += x
+            y = prod.materials[mat] * materialMap[mat].costs
+            zfk -= y
+    
+    zfk += prod.vk - prod.mk
+    zfkList.append(zfk)
+    
 
-# Sensitivitätsanalyse für Rechte Seiten (b-Vektor)
+print('Steigerung der Maschinenkosten bis ein Impact auf den optimalen Produktionsplan') #(TO-DO BESSER NENNEN)
+
+for var, lo, zfk in zip(all_variables, lower_obj, zfkList):
+    print(f"{var.name}: {zfk-lo}")
+    
+
+
+print()
+print('So viel mehr Elastan füht zu einer Änderung') #(TO-DO BESSER NENNEN)
+print()
 lower_rhs, upper_rhs = [], []
-DSS.rhssa(constraintList, lower_rhs, upper_rhs)
-print("\nSensitivität für Rechte Seiten:")
+
+
+DSS.rhssa([list(materialMap).index("Elastan")], lower_rhs, upper_rhs)
+
+
 print("Untere Grenzen:", lower_rhs)
 print("Obere Grenzen:", upper_rhs)
+
+print()
 
 # Schlupfvariablen für jede Nebenbedingung
 
@@ -345,3 +381,88 @@ for i, status in enumerate(colstat):
 # Ausgabe der Basis- und Nicht-Basisvariablen
 print("Basisvariablen:", basis_vars)
 print("Nicht-Basisvariablen:", nonbasis_vars)
+
+
+
+
+
+
+print("------------------")
+print("LP-OPTIMIERUNG OHNE RÜCKNAHME PLOYESTER")
+print("------------------")
+
+
+
+# überschreiben der alten Zielfunktion
+#in neuer Zielfunktion werden Rücksendekosten für Polyester addiert und das zurück erstattete Geld für Polyester abgezogen
+objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts + remainingMaterial['recyceltes Polyester'] * variables_df.loc[0, 'Rücksendekosten'] - remainingMaterial['recyceltes Polyester'] * materialMap['recyceltes Polyester'].costs
+
+DSS.setObjective(objective, sense=xp.maximize)
+
+DSS.lpoptimize()
+
+solution = DSS.getSolution()
+ZFWert = DSS.getObjVal()
+
+
+print("Lösung:", solution)
+print("ZFW:", ZFWert)
+
+## Produktion pro Variable
+
+print('Produktion pro Variable')
+print()
+
+for name, var in variableMap.items():
+    print(name + ": " + str(DSS.getSolution(name)))
+    
+    
+print("------------------")
+print("LP-OPTIMIERUNG OUTLET")
+print("------------------")
+
+
+DSS.delConstraint(maxConstraintList)
+
+reduced = sum((product.vk - product.mk) * variableMap[product.name] - product.maxp * 0.4 if xp.max(variableMap[product.name] > product.maxp else 0*0 for product in productList)
+
+objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts - reduced
+
+
+DSS.setObjective(objective, sense=xp.maximize)
+
+DSS.lpoptimize()
+
+solution = DSS.getSolution()
+ZFWert = DSS.getObjVal()
+
+
+print("Lösung:", solution)
+print("ZFW:", ZFWert)
+
+## Produktion pro Variable
+
+print('Produktion pro Variable')
+print()
+
+for name, var in variableMap.items():
+    print(name + ": " + str(DSS.getSolution(name)))
+    
+    
+optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
+
+## Zurücksendungen
+print()
+print('Zurücksendungen')
+print()
+
+for matName in materialMap:   
+    tempList = []
+    
+    for prod in productList:
+        if matName in prod.materials:
+            tempList.append(prod)
+    
+    print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
+
+    
