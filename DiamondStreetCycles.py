@@ -432,7 +432,7 @@ print("------------------")
 DSS.delConstraint(maxConstraintList)
 
 
-overstockMap = {p.name: xp.max(0, variableMap[p.name] - p.maxp) for p in productList}
+overstockMap = {p.name: xp.max(0, variableMap[p.name] - p.maxp ) for p in productList}
 
 
 objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts - sum(0.4 * (p.vk - p.mk) * xp.max(variableMap[p.name] - p.maxp, 0) for p in productList)
