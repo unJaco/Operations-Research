@@ -71,9 +71,7 @@ for idx in range(len(produkt_df['Produkt'])):
             materials[productData[matIdx]] = productData[matIdx + 1]
         
         # add Product to product list
-        p = Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials)
-        print(p.maxp)         
-        productList.append(p)
+        productList.append(Product(productData[0], productData[1], productData[2], productData[3], productData[4], materials) )
 
     
 ## create a map / dict with all materials
@@ -232,8 +230,14 @@ print()
 print('Produktion pro Variable')
 print()
 
+gesamtProd = 0
+
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
+    gesamtProd += DSS.getSolution(name)
+    
+print()
+print("Gesamt Herstellungsmenge: " + str(gesamtProd))
     
 
 ## Zurücksendungen
@@ -333,8 +337,9 @@ print('So viel mehr Elastan füht zu einer Änderung') #(TO-DO BESSER NENNEN)
 print()
 lower_rhs, upper_rhs = [], []
 
+idx = list(materialMap).index("Elastan")
 
-DSS.rhssa([list(materialMap).index("Elastan")], lower_rhs, upper_rhs)
+DSS.rhssa([idx], lower_rhs, upper_rhs)
 
 
 print("Untere Grenzen:", lower_rhs)
@@ -347,6 +352,10 @@ print()
 # Liste der aktiven und inaktiven Nebenbedingungen erstellen
 active_constraints = []
 inactive_constraints = []
+
+print('Dual Elastan')
+print(DSS.getDual(idx))
+
 
 # Schlupf für jede Nebenbedingung überprüfen
 for idx, constr in enumerate(constraintList):
@@ -381,8 +390,6 @@ for i, status in enumerate(colstat):
 # Ausgabe der Basis- und Nicht-Basisvariablen
 print("Basisvariablen:", basis_vars)
 print("Nicht-Basisvariablen:", nonbasis_vars)
-
-
 
 
 
@@ -425,15 +432,11 @@ print("------------------")
 DSS.delConstraint(maxConstraintList)
 
 
-overstockMap = {product.name: xp.max(0, variableMap[product.name] - product.maxp) for product in productList}
+overstockMap = {p.name: xp.max(0, variableMap[p.name] - p.maxp) for p in productList}
 
 
-modifiedObjective = sum((product.vk * 0.6 - product.mk) * overstockMap[product.name] for product in productList) + \
-                    sum((product.vk - product.mk) * (variableMap[product.name] - overstockMap[product.name]) for product in productList) - \
-                    totalCosts
+objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts - sum(0.4 * (p.vk - p.mk) * xp.max(variableMap[p.name] - p.maxp, 0) for p in productList)
 
-
-DSS.setObjective(modifiedObjective, sense=xp.maximize)
 
 DSS.lpoptimize()
 
@@ -446,11 +449,11 @@ print("ZFW:", ZFWert)
 
 ## Produktion pro Variable
 
-print('Produktion pro Variable')
+print('Produktion pro Variable, Produktion über MaxPrognose')
 print()
 
-for name, var in variableMap.items():
-    print(name + ": " + str(DSS.getSolution(name)))
+for p in productList:
+    print(p.name + ": " + str(DSS.getSolution(p.name)) + ", " + str(max(0, DSS.getSolution(p.name) - p.maxp)))
     
     
 optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
@@ -468,5 +471,4 @@ for matName in materialMap:
             tempList.append(prod)
     
     print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
-
     
