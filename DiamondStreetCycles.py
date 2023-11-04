@@ -424,12 +424,16 @@ print("------------------")
 
 DSS.delConstraint(maxConstraintList)
 
-reduced = sum((product.vk - product.mk) * variableMap[product.name] - product.maxp * 0.4 if xp.max(variableMap[product.name] > product.maxp else 0*0 for product in productList)
 
-objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts - reduced
+overstockMap = {product.name: xp.max(0, variableMap[product.name] - product.maxp) for product in productList}
 
 
-DSS.setObjective(objective, sense=xp.maximize)
+modifiedObjective = sum((product.vk * 0.6 - product.mk) * overstockMap[product.name] for product in productList) + \
+                    sum((product.vk - product.mk) * (variableMap[product.name] - overstockMap[product.name]) for product in productList) - \
+                    totalCosts
+
+
+DSS.setObjective(modifiedObjective, sense=xp.maximize)
 
 DSS.lpoptimize()
 
