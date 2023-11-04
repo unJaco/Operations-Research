@@ -236,105 +236,104 @@ print("------------------")
 print("LP OPTIMIZATION")
 print("------------------")
 
-# Retrieve the solution, slack, dual values, and reduced costs from the optimization
+# Retrieve the optimization solution
 solution = DSS.getSolution()
-slack = DSS.getSlack()
-dual_values = DSS.getDual()
-reduced_costs = DSS.getRCost()
-objective_value = DSS.getObjVal()
+# Get the slack values from the solution
+schlupf = DSS.getSlack()
+# Get the dual values from the solution
+dualwerte = DSS.getDual()
+# Get the reduced costs from the solution
+redkosten = DSS.getRCost()
+# Get the objective function value from the solution
+ZFWert = DSS.getObjVal()
 
-# Generate a dictionary of optimal values for each variable
+# Create a dictionary of optimal values for each variable
 optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
 
+# Print the solution
 print("Solution:", solution)
 
-# Print the objective function value (OFV)
-print("OFV:", objective_value)
+# Print the objective function value
+print("Objective Function Value:", ZFWert)
 
-# Print slack values
-print("Slack:", slack)
-# Print dual values
-print("Dual values:", dual_values)
-# Print reduced costs
-print("Reduced Costs:", reduced_costs)
+# Print the slack values
+print("Slack:", schlupf)
+# Print the dual values
+print("Dual Values:", dualwerte)
+# Print the reduced costs
+print("Reduced Costs:", redkosten)
 print()
 
-## Production per Variable
-
-# Print production per variable
+# Production per variable
 print('Production per Variable')
 print()
 
-# Initialize total production sum
-total_production = 0
+# Initialize the total production counter
+gesamtProd = 0
 
-# Calculate production for each variable and aggregate the total production
+# Iterate through each variable and print its production level
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
-    total_production += DSS.getSolution(name)
-
-# Print total production amount
+    # Sum up the total production level
+    gesamtProd += DSS.getSolution(name)
+    
+# Print the total production quantity
 print()
-print("Total Production Amount: " + str(total_production))
+print("Total Manufacturing Quantity: " + str(gesamtProd))
 
-## Returns
-# Print the section for returns
+# Returns
 print()
 print('Returns')
 print()
 
-# Calculate and print the returns for each material
+# For each material, calculate and print the returns
 for matName in materialMap:   
     tempList = []
     
-    # Create a list of products containing the material
+    # Collect products that use the current material
     for prod in productList:
         if matName in prod.materials:
             tempList.append(prod)
     
-    # Calculate and print the material return amount
-    print(matName + ': ' + str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
+    # Calculate and print the amount of material returned
+    print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
 
-    
-## Contribution Margin
+# Contribution Margin
 
-# Print the section for contribution margin per product
+# Contribution margin per product
 print()
 print("Contribution Margin per Product")
 print()
-
 # Calculate and print the contribution margin for each product
 for product in productList:
     db_product = (product.vk - product.mk) * optimal_values[variableMap[product.name]]
-    print(f"CM - {product.name}: {db_product}")
+    print(f"Contribution Margin - {product.name}: {db_product}")
 
-# Calculate and print the total contribution margin
-total_contribution_margin = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
+# Total contribution margin
+dbgesamt = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
 print()
-print('Total CM: ' + str(total_contribution_margin))
+print('Total Contribution Margin: ' + str(dbgesamt))
 
-# Calculate remaining material after returns
+# Calculate the remaining material after production
 for matName in materialMap:   
     tempList = []
     
-    # Create a list of products containing the material
+    # Collect products that use the current material
     for prod in productList:
         if matName in prod.materials:
             tempList.append(prod)
     
-    # Calculate remaining material for each type
+    # Calculate the remaining material for each material type
     remainingMaterial[matName] = materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))
 
-# Print the remaining material values
+# Print the remaining material quantities
 print(remainingMaterial.values())
 
-# Calculate and print return costs
-print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Return Costs']))
-# Calculate and print return revenue
-print('Return Revenue: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
+# Calculate and print the return costs
+print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']))
+# Calculate and print the money obtained from returns
+print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
 print()
-
-
 
 
 # ************************************
