@@ -5,7 +5,11 @@ DiamondStreetStyles - main.py
 
 import xpress as xp
 import pandas as pd
-import math
+import xlsxwriter
+
+#excel file which will be created 
+workbook = xlsxwriter.Workbook('Output.xlsx')
+
 
 
 #### Helper Classes ####
@@ -15,7 +19,7 @@ import math
 #   Maximalprognose, Mindestproduktionsmenge, Materialien}
 
 # Maximalprognose und Mindestproduktionsmenge können undefiniert sein
-# Materialien - {name : m/Stück}
+# Materials ist ein Dictionary für jedes Item gilt  {name : m/Stück}
 
 class Product:
     
@@ -45,7 +49,7 @@ DSS = xp.problem("DiamondStreetStyles")
 ## XPRESS Settings
 DSS.setControl('outputlog', 0)
 
-# Laden der Excel File und auslesen von Material, Produkt und Fixkosten
+# Laden der Excel File und auslesen von Material, Produkt, Fixkosten und Variablen
 file_path = 'Produktionsplanung.xlsx'  # Replace with your file path
 material_df = pd.read_excel(file_path, sheet_name='Material')
 produkt_df = pd.read_excel(file_path, sheet_name='Produkt')
@@ -130,7 +134,7 @@ for matName in materialMap:
         name=matName
     )
     
-    # Add the constraint to the Decision Support System (DSS)
+    # Add the constraint to the problem
     DSS.addConstraint(c_mat)
     
     # Add the created constraint to the constraint list
@@ -145,7 +149,7 @@ for matName in materialMap:
 c_ver1 = variableMap['Fleece-Top'] >= variableMap['Fleece-Shirt']
 # Create constraints based on the condition that the quantity of 'Sweatshorts' should be greater than or equal to 'Sweatshirt'
 c_ver2 = variableMap['Sweatshorts'] >= variableMap['Sweatshirt']
-# Add the constraints to the Decision Support System (DSS)
+# Add the constraints to the problem
 DSS.addConstraint(c_ver1)
 DSS.addConstraint(c_ver2)
 # Append the constraints to the constraint list for later reference
@@ -204,8 +208,6 @@ totalMaterialCosts = sum(material.limit * material.costs for material in materia
 
 
 ## Rücksendekosten ##
-
-
 
 returnCosts = sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']
 
@@ -271,15 +273,36 @@ print()
 # Initialize the total production counter
 gesamtProd = 0
 
+
+worksheet = workbook.add_worksheet(name="OPRIMALER PRODUKTIONSPLAM")
+worksheetP = workbook.add_worksheet(name="KEIN PLOYESTER")
+worksheetO = workbook.add_worksheet(name="PRODUKTIONSPLAN OUTLET")
+
+row = 1
+
 # Iterate through each variable and print its production level
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
     # Sum up the total production level
     gesamtProd += DSS.getSolution(name)
+    worksheet.write(row, 0, name)
+    worksheet.write(row, 1, DSS.getSolution(name))
+    
+    row += 1
     
 # Print the total production quantity
 print()
 print("Total Manufacturing Quantity: " + str(gesamtProd))
+row += 1
+
+worksheet.write(row, 0, "Total Manufacturing Quantity: ")
+worksheet.write(row, 1, gesamtProd)
+
+row += 2
+
+worksheet.write(row, 0, "Rücksendungen")
+
+row += 1
 
 # Returns
 print()
@@ -296,21 +319,42 @@ for matName in materialMap:
             tempList.append(prod)
     
     # Calculate and print the amount of material returned
-    print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
+    r = materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))
+    print(matName + ': ' +  str(r))
+    worksheet.write(row, 0, matName)
+    worksheet.write(row, 1, r)
+    
+    row += 1
 
+row += 1
 # Contribution Margin
 
 # Contribution margin per product
 print()
 print("Contribution Margin per Product")
 print()
+
+worksheet.write(row, 0, "Contribution Margin per Product: ")
+
+row += 1
 # Calculate and print the contribution margin for each product
 for product in productList:
     db_product = (product.vk - product.mk) * optimal_values[variableMap[product.name]]
+    worksheet.write(row, 0, product.name)
+    worksheet.write(row, 1, db_product)
+    row += 1
     print(f"Contribution Margin - {product.name}: {db_product}")
+
+row+= 1
+
 
 # Total contribution margin
 dbgesamt = sum((product.vk - product.mk) * optimal_values[variableMap[product.name]] for product in productList) - totalMaterialCosts
+worksheet.write(row, 0, "Contribution Margin total: ")
+worksheet.write(row, 1, dbgesamt)
+
+
+row += 2
 print()
 print('Total Contribution Margin: ' + str(dbgesamt))
 
@@ -329,12 +373,31 @@ for matName in materialMap:
 # Print the remaining material quantities
 print(remainingMaterial.values())
 
+
 # Calculate and print the return costs
-print('Return Costs: ' + str(sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']))
+rc = sum(remainingMaterial.values()) * variables_df.loc[0, 'Rücksendekosten']
+print('Return Costs: ' + str(rc))
+
+
+worksheet.write(row, 0, "Return Costs: ")
+worksheet.write(row, 1, rc)
+
+row += 2
+  
 # Calculate and print the money obtained from returns
-print('Return Money: ' + str(sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())))
+rm = sum(quantity * materialMap[matName].costs for matName, quantity in remainingMaterial.items())
+print('Return Money: ' + str(rm))
 print()
 
+
+worksheet.write(row, 0, "Return Money: ")
+worksheet.write(row, 1, rm)
+
+row += 2
+
+
+worksheet.write(row, 0, "Profit: ")
+worksheet.write(row, 1, ZFWert)
 
 # ************************************
 # Sensitivitaetsanalyse
@@ -343,6 +406,8 @@ print()
 print("------------------")
 print("SENSITIVITÄTSANALYSE")
 print("------------------")
+
+worksheetS = workbook.add_worksheet(name="INCREASE MACHINE COSTS")
 
 # Sensitivitätsanalyse für Zielfunktionskoeffizienten
 all_variables = list(variableMap.values())
@@ -359,6 +424,7 @@ print("\nSensitivity for Objective Function Coefficients:")#
 print()
 
 
+# calculate the Zielfunktionskoeffizient
 zfkList = []
 for prod in productList:
     zfk = 0
@@ -373,25 +439,51 @@ for prod in productList:
     zfkList.append(zfk)
     
 
-print('Steigerung der Maschinenkosten bis ein Impact auf den optimalen Produktionsplan') #(TO-DO BESSER NENNEN)
+print('Steigerung der Maschinenkosten bis ein Impact auf den optimalen Produktionsplan')
+
+row = 1
+
+worksheetS.write(row, 0, "Wie viel müssen die Maschinenkosten pro Produkt steigen um den optimalen Plan zu beeinflussen?")
+
+row += 1
 
 for var, lo, zfk in zip(all_variables, lower_obj, zfkList):
     print(f"{var.name}: {zfk-lo}")
+    worksheetS.write(row, 0, var.name)
+    worksheetS.write(row, 1, zfk-lo)
+    
+    row += 1
     
 
+worksheetE = workbook.add_worksheet(name="IMPACT OF EXTRA ELASTAN")
+
+row = 1
 
 print()
-print('So viel mehr Elastan füht zu einer Änderung') #(TO-DO BESSER NENNEN)
+print('Impact von 1 Elastan auf Gewinn') 
 print()
 lower_rhs, upper_rhs = [], []
+
+worksheetE.write(row, 0, 'Which Impact has one extra Elastan on the profit?')
+
+row += 1
 
 idx = list(materialMap).index("Elastan")
 
 DSS.rhssa([idx], lower_rhs, upper_rhs)
 
 
-print("Untere Grenzen:", lower_rhs)
-print("Obere Grenzen:", upper_rhs)
+worksheetE.write(row, 0, 'Increase per Elastan: ')
+worksheetE.write(row, 1, DSS.getDual(idx))
+
+print(DSS.getDual(idx))
+
+print("Die trifft zu bis zu einer Menge von: ", upper_rhs)
+
+row += 2
+
+worksheetE.write(row, 0, 'This is valid until a total Elastan of: ')
+worksheetE.write(row, 1, upper_rhs[0])
 
 print()
 
@@ -400,9 +492,6 @@ print()
 # Liste der aktiven und inaktiven Nebenbedingungen erstellen
 active_constraints = []
 inactive_constraints = []
-
-print('Dual Elastan')
-print(DSS.getDual(idx))
 
 
 # Schlupf für jede Nebenbedingung überprüfen
@@ -448,6 +537,7 @@ print("------------------")
 
 
 
+
 # überschreiben der alten Zielfunktion
 #in neuer Zielfunktion werden Rücksendekosten für Polyester addiert und das zurück erstattete Geld für Polyester abgezogen
 objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts + remainingMaterial['recyceltes Polyester'] * variables_df.loc[0, 'Rücksendekosten'] - remainingMaterial['recyceltes Polyester'] * materialMap['recyceltes Polyester'].costs
@@ -468,21 +558,28 @@ print("ZFW:", ZFWert)
 print('Produktion pro Variable')
 print()
 
+row = 1
+
 for name, var in variableMap.items():
     print(name + ": " + str(DSS.getSolution(name)))
+    worksheetP.write(row, 0, name)
+    worksheetP.write(row, 1, DSS.getSolution(name))
+    
+    row += 1
     
     
 print("------------------")
 print("LP-OPTIMIERUNG OUTLET")
 print("------------------")
 
-
+#löschen der Constraints die efür in Produktionsmaximum sorgen
 DSS.delConstraint(maxConstraintList)
 
 
+#herausfinden für welche Produkte das Produktionsmaximum überschritten wurde
 overstockMap = {p.name: xp.max(0, variableMap[p.name] - p.maxp ) for p in productList}
 
-
+#amount über maximum multiplizieren mit gewinn und 0.4 und dann abziehen
 objective = sum((product.vk - product.mk) * variableMap[product.name] for product in productList) - totalCosts - sum(0.4 * (p.vk - p.mk) * xp.max(variableMap[p.name] - p.maxp, 0) for p in productList)
 
 
@@ -497,11 +594,28 @@ print("ZFW:", ZFWert)
 
 ## Produktion pro Variable
 
+row = 1
+
 print('Produktion pro Variable, Produktion über MaxPrognose')
 print()
 
+worksheetO.write(row, 0, "Name")
+worksheetO.write(row, 1, "Amount")
+worksheetO.write(row, 2, "Amount over MaxProg")
+
+row += 2
+ 
 for p in productList:
-    print(p.name + ": " + str(DSS.getSolution(p.name)) + ", " + str(max(0, DSS.getSolution(p.name) - p.maxp)))
+    
+    overMax = max(0, DSS.getSolution(p.name) - p.maxp)
+    print(p.name + ": " + str(DSS.getSolution(p.name)) + ", " + str(overMax))
+    
+    worksheetO.write(row, 0, p.name)
+    worksheetO.write(row, 1, str(DSS.getSolution(p.name)))
+    worksheetO.write(row, 2, str(overMax))
+    
+    row += 1
+    
     
     
 optimal_values = {var: DSS.getSolution(var) for var in variableMap.values()}
@@ -519,4 +633,6 @@ for matName in materialMap:
             tempList.append(prod)
     
     print(matName + ': ' +  str(materialMap[matName].limit - sum(tempList[i].materials[matName] * optimal_values[variableMap[tempList[i].name]] for i in range(len(tempList)))))
+
+workbook.close()
 
